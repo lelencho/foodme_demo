@@ -145,10 +145,16 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }} # the PR commit, not the merge commit
           fetch-depth: 0 # PR mode needs history to find the problems this PR introduces
+      # Native mode (--ide QDJVMC) runs Qodana on the runner instead of in its Docker image, so it
+      # can use the JDK 17 the backend's Gradle toolchain requires (the image has no JDK 17).
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
       - name: Qodana scan (Java backend)
         uses: JetBrains/qodana-action@v2026.2
         with:
-          args: --project-dir apps/backend
+          args: --project-dir apps/backend --ide QDJVMC
           pr-mode: ${{ github.event_name == 'pull_request' }}
         env:
           # Secret created by the Qodana Cloud setup wizard (project token from qodana.cloud).
