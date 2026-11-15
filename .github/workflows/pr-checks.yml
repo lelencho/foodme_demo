@@ -115,11 +115,12 @@ jobs:
           (cd apps/admin && npx playwright install chromium)
       - name: Web E2E (Playwright)
         working-directory: apps/web
-        run: npm run test:e2e
+        # "github" adds each failing test as an annotation on the PR's Checks tab.
+        run: npm run test:e2e -- --reporter=github,list,html
       - name: Admin E2E (Playwright)
         if: ${{ !cancelled() }} # run even when the web E2E failed
         working-directory: apps/admin
-        run: npm run test:e2e
+        run: npm run test:e2e -- --reporter=github,list,html
       - name: Upload Playwright reports and backend log
         if: ${{ failure() }}
         uses: actions/upload-artifact@v7
@@ -147,7 +148,7 @@ jobs:
       - name: Qodana scan (Java backend)
         uses: JetBrains/qodana-action@v2026.2
         with:
-          args: --project-dir,apps/backend
+          args: --project-dir apps/backend
           pr-mode: ${{ github.event_name == 'pull_request' }}
         env:
           # Secret created by the Qodana Cloud setup wizard (project token from qodana.cloud).
