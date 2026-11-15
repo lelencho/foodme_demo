@@ -1,0 +1,13 @@
+####################################################################################################################
+# WARNING: Do not store sensitive information in this file, as its contents will be included in the Qodana report. #
+####################################################################################################################
+# Qodana static analysis for the Java backend. Run by the "Qodana" job in .github/workflows/pr-checks.yml
+# with --project-dir apps/backend (the repo root has no build of its own).
+version: "1.0"
+# Free Community linter for Java/Kotlin. The paid "qodana-jvm" needs a Qodana Ultimate license.
+linter: jetbrains/qodana-jvm-community:2026.2
+profile:
+  name: qodana.recommended
+# Fail the job when the pull request introduces any NEW problem. In PR mode only problems in the
+# changed code count, so existing findings in old code do not block merges.
+failThreshold: 0
