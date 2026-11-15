@@ -1,0 +1,162 @@
+# Required checks for every pull request into main. Branch protection (ruleset "protect-main")
+# blocks merging unless all four jobs pass: Unit tests, Integration tests, E2E tests, Qodana.
+name: PR checks
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch: # manual run from the Actions tab
+
+concurrency: # a new push to the same PR cancels the previous run
+  group: pr-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - name: Backend unit tests (JUnit + Mockito, no Spring context)
+        working-directory: apps/backend
+        run: ./gradlew test --tests 'am.foodme.backend.service.*' --console=plain
+      - name: Web dependencies
+        working-directory: apps/web
+        run: npm ci
+      - name: Web typecheck
+        working-directory: apps/web
+        run: npx tsc -b
+      - name: Web unit tests (Vitest)
+        working-directory: apps/web
+        run: npm run test:unit
+
+  integration:
+    name: Integration tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v6
+      - name: Backend integration tests (Spring Boot + MockMvc + H2)
+        working-directory: apps/backend
+        run: ./gradlew test --tests '*ControllerTest' --console=plain
+
+  e2e:
+    name: E2E tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: foodme
+          POSTGRES_USER: foodme
+          POSTGRES_PASSWORD: foodme
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U foodme"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            apps/web/package-lock.json
+            apps/admin/package-lock.json
+      - name: Install dependencies
+        run: |
+          npm ci --prefix apps/web
+          npm ci --prefix apps/admin
+      # Same layout as the Docker/Render build: the backend serves the admin SPA at /backoffice.
+      # One web E2E test (admin login after checkout) depends on it.
+      - name: Bundle admin SPA into the backend
+        run: |
+          npm run build --prefix apps/admin
+          mkdir -p apps/backend/src/main/resources/static/backoffice
+          cp -r apps/admin/dist/. apps/backend/src/main/resources/static/backoffice/
+      - name: Start backend (Postgres + Flyway seed data)
+        working-directory: apps/backend
+        run: |
+          nohup ./gradlew bootRun --console=plain > backend.log 2>&1 &
+          for i in $(seq 1 72); do
+            if curl -sf http://localhost:8081/actuator/health; then echo; echo "Backend is up"; exit 0; fi
+            sleep 5
+          done
+          echo "Backend did not become healthy within 6 minutes"; tail -n 150 backend.log; exit 1
+      # web and admin pin different Playwright versions, so each installs its own browser build.
+      - name: Install Playwright browsers
+        run: |
+          (cd apps/web && npx playwright install --with-deps chromium)
+          (cd apps/admin && npx playwright install chromium)
+      - name: Web E2E (Playwright)
+        working-directory: apps/web
+        # "github" adds each failing test as an annotation on the PR's Checks tab.
+        run: npm run test:e2e -- --reporter=github,list,html
+      - name: Admin E2E (Playwright)
+        if: ${{ !cancelled() }} # run even when the web E2E failed
+        working-directory: apps/admin
+        run: npm run test:e2e -- --reporter=github,list,html
+      - name: Upload Playwright reports and backend log
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-reports
+          path: |
+            apps/web/playwright-report
+            apps/admin/playwright-report
+            apps/backend/backend.log
+          retention-days: 7
+
+  qodana:
+    name: Qodana
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      pull-requests: write
+      checks: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }} # the PR commit, not the merge commit
+          fetch-depth: 0 # PR mode needs history to find the problems this PR introduces
+      # Native mode (--ide QDJVMC) runs Qodana on the runner instead of in its Docker image, so it
+      # can use the JDK 17 the backend's Gradle toolchain requires (the image has no JDK 17).
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Qodana scan (Java backend)
+        uses: JetBrains/qodana-action@v2026.2
+        with:
+          args: --project-dir apps/backend --ide QDJVMC
+          pr-mode: ${{ github.event_name == 'pull_request' }}
+        env:
+          # Secret created by the Qodana Cloud setup wizard (project token from qodana.cloud).
+          QODANA_TOKEN: ${{ secrets.QODANA_TOKEN_607043901 }}
+          QODANA_ENDPOINT: https://qodana.cloud
