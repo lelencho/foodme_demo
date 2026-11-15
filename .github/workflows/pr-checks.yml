@@ -158,5 +158,5 @@ jobs:
           pr-mode: ${{ github.event_name == 'pull_request' }}
         env:
           # Secret created by the Qodana Cloud setup wizard (project token from qodana.cloud).
-          QODANA_TOKEN: ${{ secrets.QODANA_TOKEN_906730900 }}
+          QODANA_TOKEN: ${{ secrets.QODANA_TOKEN_607043901 }}
           QODANA_ENDPOINT: https://qodana.cloud
