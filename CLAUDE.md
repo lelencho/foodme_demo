@@ -14,7 +14,7 @@ Everything below is loaded in addition to `AGENTS.md` above.
 - **Subagent** `test-runner` runs suites and returns a ≤25-line triaged result. Prefer it over
   running long suites in the main context.
 - **Jira** comes from the Atlassian MCP server (`mcp__atlassian__*`). Not connected?
-  `claude mcp add --transport http atlassian https://mcp.atlassian.com/v1/mcp`, then `/mcp` to log in.
+  `claude mcp add --transport http atlassian https://mcp.atlassian.com/v2/mcp`, then `/mcp` to log in.
 
 ## Hooks (`.claude/settings.json`) — what will stop you
 

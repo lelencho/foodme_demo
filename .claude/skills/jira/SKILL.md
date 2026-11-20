@@ -10,11 +10,14 @@ description: Work with FoodMe Jira tickets (site yelenatermado.atlassian.net, pr
 Tools are `mcp__atlassian__*`. If they are missing, the server isn't connected — tell the user to run:
 
 ```bash
-claude mcp add --transport http atlassian https://mcp.atlassian.com/v1/mcp
+claude mcp add --transport http atlassian https://mcp.atlassian.com/v2/mcp
 ```
 
 then `/mcp` → *atlassian* → Authenticate (OAuth in the browser). Or copy `.mcp.json.example` to
 `.mcp.json` (git-ignored). Don't proceed with invented ticket data.
+
+Still connected to the old `/v1/mcp` endpoint (Atlassian removes it on 2027-03-01)? Switch with
+`claude mcp remove atlassian`, the `add` command above, then `/mcp` → Authenticate again.
 
 ## Constants (verified)
 
