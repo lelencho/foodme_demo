@@ -112,9 +112,7 @@ describe("quantity changes", () => {
     expect(await db.products.get(uidOf(dish))).toBeUndefined();
   });
 
-  // Known defect: SCRUM-7 / FM-BUG-07 — decrementing from min+1 deletes the line
-  // instead of reducing it to the minimum. `it.fails` keeps the suite green while the
-  // bug exists and turns RED once it is fixed: then change `it.fails` back to `it`.
+  // Regression test for SCRUM-7 (FM-BUG-07): the line used to be deleted one step early.
   it("decrements from 2 to 1 instead of removing the line (SCRUM-7)", async () => {
     const dish = makeDish();
     await addDishToCart(dish, 2);
