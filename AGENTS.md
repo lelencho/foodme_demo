@@ -63,7 +63,7 @@ assertion-free tests, skips need a Jira key).
 ## Jira
 
 Project `SCRUM` on `yelenatermado.atlassian.net`, via the Atlassian MCP server
-(`https://mcp.atlassian.com/v1/mcp`). Workflow and templates: `.agents/skills/jira/SKILL.md`.
+(`https://mcp.atlassian.com/v2/mcp`). Workflow and templates: `.agents/skills/jira/SKILL.md`.
 
 ## Skills (`.agents/skills/`)
 
